@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore Berkeley's residential population and housing density, block by block, using verified 2020 Census data.">
+  <title>Berkeley, in people | A density atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="./"><span class="brand-mark" aria-hidden="true">b.</span><span>Berkeley, <i>in people.</i><small>A BLOCK-BY-BLOCK ATLAS</small></span></a>
+    <div class="masthead-right"><span class="edition">01 / BERKELEY, CALIFORNIA</span><button id="method-open" class="text-button" type="button">Data &amp; method <span aria-hidden="true">&#8599;</span></button></div>
+  </header>
+  <main class="atlas">
+    <aside class="sidebar" aria-label="Explore density">
+      <div class="intro">
+        <p class="eyebrow">THE SHAPE OF A CITY</p>
+        <h1>Same city.<br>Different density.</h1>
+        <p>One street feels like a village. Another, a city. Explore where Berkeley's residents live, one Census block at a time.</p>
+        <div class="city-stats"><div><strong id="city-pop">--</strong><span>residents in 2020</span></div><div><strong id="city-blocks">--</strong><span>Census blocks</span></div></div>
+      </div>
+      <div class="explore-controls">
+        <div class="section-heading"><h2>Read the map</h2><span class="date-tag">2020 CENSUS</span></div>
+        <div class="segmented" aria-label="Density metric">
+          <button type="button" id="people-mode" aria-pressed="true">People / acre</button>
+          <button type="button" id="housing-mode" aria-pressed="false">Homes / acre</button>
+        </div>
+        <p class="micro" id="metric-description">Residents divided by the block's land area. Not people walking on the street.</p>
+        <label class="field-label" for="street-search">Explore a street</label>
+        <div class="search-box"><span aria-hidden="true">&#8981;</span><input id="street-search" type="search" placeholder="Try Telegraph, Shattuck, Oxford..." autocomplete="off" aria-controls="search-results"></div>
+        <div id="search-results" class="search-results" aria-label="Matching streets"></div>
+        <p class="micro">Choose a street to highlight nearby Census blocks. Street profiles are not exact street populations.</p>
+        <div class="filter-heading"><label class="field-label" for="threshold">Spot the denser blocks</label><output id="threshold-value" for="threshold">Show all</output></div>
+        <input id="threshold" type="range" min="0" max="100" step="5" value="0">
+        <div class="range-labels"><span>All blocks</span><span id="threshold-max">100+ people/acre</span></div>
+      </div>
+      <section class="selection-section" aria-labelledby="selection-title">
+        <div class="section-heading"><h2 id="selection-title">A closer look</h2><button id="clear-selection" class="text-button small" type="button" hidden>Clear</button></div>
+        <div id="selection-detail"><p class="empty-detail">Click a colored block to meet the numbers behind it, or search for a street above.</p></div>
+      </section>
+      <section class="story">
+        <p class="eyebrow">THREE WAYS TO LOOK</p>
+        <button class="story-link" type="button" data-street="TELEGRAPH AVE"><span class="story-number">01</span><span><strong>Student life, close together</strong><small>Explore Telegraph Avenue's nearby blocks. Dormitories can make people density very different from housing density.</small></span><span aria-hidden="true">&#8599;</span></button>
+        <button class="story-link" type="button" data-street="SHATTUCK AVE"><span class="story-number">02</span><span><strong>The city's main spine</strong><small>Follow Shattuck Avenue and compare the blocks along its length. A single street is rarely uniform.</small></span><span aria-hidden="true">&#8599;</span></button>
+        <button class="story-link" type="button" data-street="GRIZZLY PEAK BLVD"><span class="story-number">03</span><span><strong>Where the city meets the hills</strong><small>Look around Grizzly Peak Boulevard. Large land areas, parks, and hillside blocks change the density calculation.</small></span><span aria-hidden="true">&#8599;</span></button>
+      </section>
+      <section class="distribution"><div class="section-heading"><h2>The city's texture</h2><span id="distribution-unit">PEOPLE / ACRE</span></div><div id="distribution-chart"></div><p class="micro">Share of land-containing Census blocks in each density band. Each block counts once, regardless of its size.</p></section>
+      <footer class="sidebar-footer">A snapshot, not a live count.<br><button type="button" id="method-footer" class="text-button small">See sources, caveats &amp; calculations</button></footer>
+    </aside>
+    <section class="map-section" aria-label="Interactive map of Berkeley density">
+      <div id="map" aria-label="Census block density map" tabindex="0"></div>
+      <div class="map-tools">
+        <span class="map-tag"><span class="status-dot"></span>BERKELEY / BLOCK SCALE</span>
+        <div class="map-view-controls">
+          <div class="segmented basemap-switch" role="group" aria-label="Basemap">
+            <button id="map-mode" type="button" aria-pressed="true">Map</button>
+            <button id="satellite-mode" type="button" aria-pressed="false">Satellite</button>
+          </div>
+          <label class="density-toggle"><input id="density-visible" type="checkbox" checked> Density</label>
+          <button id="reset-map" type="button">City view <span aria-hidden="true">&#8634;</span></button>
+        </div>
+      </div>
+      <div class="map-caption"><span id="map-caption">Every polygon is a Census block.</span><span>Zoom in. Look closer.</span></div>
+      <div id="map-legend" class="legend" aria-label="Map color legend"><div class="legend-title"><strong id="legend-title">Residents per land acre</strong><span>DENSITY</span></div><div id="legend-bands"></div><div class="legend-note">No land: no color <span class="street-key"></span>Selected street</div></div>
+      <p id="density-hidden-note" class="density-hidden-note" hidden>Density overlay hidden. Turn on Density to explore Census blocks.</p>
+      <p id="basemap-status" class="basemap-status" role="status" hidden></p>
+      <div id="loading" class="loading"><span class="loading-mark">b.</span><strong>Unfolding Berkeley...</strong><span>Loading verified block-level data.</span></div>
+      <div id="error-panel" class="error-panel" role="alert" hidden><strong>The atlas couldn't load.</strong><p id="error-message"></p><button id="retry" type="button">Reload page</button></div>
+    </section>
+  </main>
+  <dialog id="method-dialog" aria-labelledby="method-title">
+    <div class="dialog-header"><p class="eyebrow">BEHIND THE MAP</p><button id="method-close" type="button" aria-label="Close methodology">Close &#215;</button></div>
+    <h2 id="method-title">Good maps show their working.</h2>
+    <p>This is a map of <strong>residential population density in 2020</strong>, not today's population, pedestrian activity, building height, or the number of people with a particular street address.</p>
+    <h3>The smallest reliable starting point</h3>
+    <p>The polygons are 2020 Census tabulation blocks from the U.S. Census Bureau's TIGERweb service. Blocks often follow streets, but can also follow railways, shorelines, and other boundaries. They are not parcels or individual buildings.</p>
+    <h3>Two views of density</h3>
+    <p><strong>People per acre</strong> = POP100 (resident population) &#247; (AREALAND in square meters &#247; 4,046.8564224). <strong>Homes per acre</strong> uses HU100 (housing units) with the same denominator. Housing units include vacant units; this is not an occupied-home count. Blocks without land have no density value, even if they have residents. One waterfront block reports 21 residents and 9 housing units but zero land area; those counts are retained, not discarded.</p>
+    <h3>What a street profile means</h3>
+    <p>We draw a 30-meter buffer around the selected city street centerlines and find Berkeley Census blocks intersecting it. We count each matching block once, using its <em>entire</em> population and land area. The profile density is total residents (or housing units) divided by total land acres across those blocks, not an average of individual densities. Blocks can belong to several street profiles, including blocks near intersections. A street profile covers the full named street in this dataset, not just the part currently on screen.</p>
+    <p><strong>Do not read the street totals as people living on that street or within 30 meters of it.</strong> No people are assigned to individual addresses or modeled along a street.</p>
+    <h3>A city average is not a typical block</h3>
+    <p>The city benchmark includes all Berkeley land, including parks, campus, industrial areas, and the waterfront. It is not net residential density. Very small blocks can have unusually high densities. Population includes group quarters such as student dormitories, which are not counted as ordinary housing units; a high residents-to-housing ratio is a clue, not proof of a dormitory.</p>
+    <h3>Time, privacy, and uncertainty</h3>
+    <p>Census counts reflect April 1, 2020, and are subject to Census disclosure-avoidance protections, including statistical noise at small geographic levels. New housing and demographic changes since 2020 are not shown. The street geometry is a later city GIS snapshot, so it may not align perfectly with 2020 blocks.</p>
+    <h3>Sources &amp; integrity</h3>
+    <ul>
+      <li><a href="https://tigerweb.geo.census.gov/arcgis/rest/services/Census2020/tigerWMS_Census2020/MapServer/10" target="_blank" rel="noopener noreferrer">U.S. Census Bureau: 2020 blocks, population, housing, and land area</a></li>
+      <li><a href="https://tigerweb.geo.census.gov/arcgis/rest/services/Census2020/tigerWMS_Census2020/MapServer/26" target="_blank" rel="noopener noreferrer">U.S. Census Bureau: 2020 Berkeley city boundary</a></li>
+      <li><a href="https://gis.cityofberkeley.info/arcgis/rest/services/Planning/Accela/MapServer/3" target="_blank" rel="noopener noreferrer">City of Berkeley: named street centerlines</a></li>
+      <li><a href="https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html" target="_blank" rel="noopener noreferrer">About the Census redistricting data</a></li>
+    </ul>
+    <p id="integrity-note"></p>
+    <h3>Basemap &amp; satellite imagery</h3>
+    <p>Map uses Esri's Light Gray Canvas basemap and reference labels. Satellite uses Esri World Imagery, which combines satellite and aerial photography. Imagery dates vary and do not necessarily match the 2020 Census. Density colors are more transparent in satellite mode; uncheck Density for an unobstructed view. Census block outlines and background city centerlines are not drawn over the basemap; only your selection is highlighted.</p>
+    <p class="micro">Display geometry is rounded to six decimal places; street lines are generalized by roughly one meter. Calculations use Census-reported land area, not the displayed polygon area. Mapping: Leaflet; spatial operations: Turf. No analytics, tracking code, location requests, or paid API keys. CDN libraries and Esri tiles require an internet connection and send normal browser requests to those providers. Street searches and density calculations use the bundled data locally.</p>
+  </dialog>
+  <script src="data.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
